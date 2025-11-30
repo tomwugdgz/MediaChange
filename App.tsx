@@ -227,6 +227,87 @@ function App() {
     markAsRead(id);
   };
 
+  // --- EXPORT FUNCTIONALITY ---
+  const exportToCSV = (data: any[], filename: string) => {
+    if (!data || !data.length) {
+      addNotification("导出失败", "没有数据可导出", "warning");
+      return;
+    }
+
+    const headers = Object.keys(data[0]);
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => headers.map(fieldName => {
+        const val = row[fieldName] !== undefined && row[fieldName] !== null ? row[fieldName] : '';
+        // Escape quotes and wrap in quotes to handle commas
+        const stringVal = String(val).replace(/"/g, '""');
+        return `"${stringVal}"`;
+      }).join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      addNotification("导出成功", `数据已成功导出为 ${filename}`, "success");
+    }
+  };
+
+  const handleExportInventory = () => {
+    const data = getFilteredInventory().map(item => ({
+      '商品ID': item.id,
+      '商品名称': item.name,
+      '品牌': item.brand,
+      '分类': item.category,
+      '库存数量': item.quantity,
+      '市场单价': item.marketPrice,
+      '最低价': item.lowestPrice || '',
+      '成本价': item.costPrice,
+      '状态': item.status,
+      '产品链接': item.productUrl || '',
+      '最后更新': item.lastUpdated
+    }));
+    exportToCSV(data, '库存清单.csv');
+  };
+
+  const handleExportMedia = () => {
+    const data = getFilteredMedia().map(item => ({
+      '媒体ID': item.id,
+      '媒体名称': item.name,
+      '类型': item.type,
+      '广告形式': item.format,
+      '覆盖范围': item.location,
+      '刊例价格': item.rate,
+      '折扣': item.discount,
+      '合同开始': item.contractStart,
+      '合同结束': item.contractEnd,
+      '状态': item.status
+    }));
+    exportToCSV(data, '媒体资源表.csv');
+  };
+
+  const handleExportChannels = () => {
+    const data = getFilteredChannels().map(item => ({
+      '渠道ID': item.id,
+      '渠道名称': item.name,
+      '类型': item.type,
+      '子类型': item.subType,
+      '适用品类': item.applicableCategories,
+      '特点': item.features,
+      '优势': item.pros,
+      '佣金比例': item.commissionRate,
+      '联系人': item.contactPerson,
+      '状态': item.status
+    }));
+    exportToCSV(data, '销售渠道表.csv');
+  };
+
   // Helper to re-evaluate item status based on current settings
   const evaluateStatus = (quantity: number, currentSettings: AppSettings): InventoryStatus => {
     if (quantity <= currentSettings.outOfStockThreshold) return InventoryStatus.OUT_OF_STOCK;
@@ -550,7 +631,10 @@ function App() {
             <button className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <Filter className="h-4 w-4 mr-2" /> 筛选
             </button>
-            <button className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+            <button 
+              onClick={handleExportInventory}
+              className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            >
               <Download className="h-4 w-4 mr-2" /> 导出
             </button>
           </div>
@@ -795,7 +879,10 @@ function App() {
             <button className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <Filter className="h-4 w-4 mr-2" /> 筛选
             </button>
-            <button className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+            <button 
+              onClick={handleExportMedia}
+              className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            >
               <Download className="h-4 w-4 mr-2" /> 导出
             </button>
           </div>
@@ -1027,7 +1114,10 @@ function App() {
             <button className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <Filter className="h-4 w-4 mr-2" /> 筛选
             </button>
-            <button className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+            <button 
+              onClick={handleExportChannels}
+              className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            >
               <Download className="h-4 w-4 mr-2" /> 导出
             </button>
           </div>
