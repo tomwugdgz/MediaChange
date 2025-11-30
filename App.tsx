@@ -11,7 +11,7 @@ import {
   Calculator, AlertTriangle, Tv, ShoppingCart, Settings, Save, MinusCircle, X,
   Monitor, Clock, Download, ChevronDown, MoreHorizontal, Globe, Store, Star, Link2,
   Smartphone, Home, BriefcaseMedical, Droplets, ExternalLink, TrendingDown,
-  ArrowRight, Equal, Percent, Activity, Calendar
+  ArrowRight, Equal, Percent, Activity, Calendar, Database
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend,
@@ -194,6 +194,25 @@ const DEFAULT_SETTINGS: AppSettings = {
   outOfStockThreshold: 0
 };
 
+// --- LOCAL STORAGE HELPERS ---
+const STORAGE_KEYS = {
+  INVENTORY: 'barterflow_inventory',
+  MEDIA: 'barterflow_media',
+  CHANNELS: 'barterflow_channels',
+  SETTINGS: 'barterflow_settings'
+};
+
+const loadFromStorage = <T,>(key: string, fallback: T): T => {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const item = window.localStorage.getItem(key);
+    return item ? JSON.parse(item) : fallback;
+  } catch (error) {
+    console.warn(`Error loading ${key} from localStorage:`, error);
+    return fallback;
+  }
+};
+
 // --- TOAST COMPONENT ---
 const ToastContainer = ({ notifications, removeToast }: { notifications: Notification[], removeToast: (id: string) => void }) => {
   return (
@@ -226,12 +245,22 @@ const ToastContainer = ({ notifications, removeToast }: { notifications: Notific
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
-  const [media, setMedia] = useState<MediaResource[]>(INITIAL_MEDIA);
-  const [channels, setChannels] = useState<SalesChannel[]>(INITIAL_CHANNELS);
   
-  // New States for Settings and Notifications
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  // Initialize state from LocalStorage with fallback to Mock Data
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => 
+    loadFromStorage(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY)
+  );
+  const [media, setMedia] = useState<MediaResource[]>(() => 
+    loadFromStorage(STORAGE_KEYS.MEDIA, INITIAL_MEDIA)
+  );
+  const [channels, setChannels] = useState<SalesChannel[]>(() => 
+    loadFromStorage(STORAGE_KEYS.CHANNELS, INITIAL_CHANNELS)
+  );
+  const [settings, setSettings] = useState<AppSettings>(() => 
+    loadFromStorage(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS)
+  );
+  
+  // New States for Notifications (No need to persist typically)
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   // State for Modals
@@ -256,6 +285,23 @@ function App() {
   const totalValue = inventory.reduce((acc, item) => acc + (item.marketPrice * item.quantity), 0);
   const totalItems = inventory.reduce((acc, item) => acc + item.quantity, 0);
   const lowStockCount = inventory.filter(i => i.status === InventoryStatus.LOW_STOCK).length;
+
+  // --- PERSISTENCE EFFECTS ---
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
+  }, [inventory]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.MEDIA, JSON.stringify(media));
+  }, [media]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.CHANNELS, JSON.stringify(channels));
+  }, [channels]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+  }, [settings]);
 
   // Notification Logic
   const addNotification = (title: string, message: string, type: 'info' | 'warning' | 'error' | 'success') => {
@@ -1948,6 +1994,16 @@ function App() {
       setTimeout(() => setIsSaved(false), 2000);
     };
 
+    const handleResetData = () => {
+      if (window.confirm('确定要重置所有数据吗？此操作将清除所有本地保存的数据并恢复为系统默认演示数据，且无法撤销。')) {
+        localStorage.removeItem(STORAGE_KEYS.INVENTORY);
+        localStorage.removeItem(STORAGE_KEYS.MEDIA);
+        localStorage.removeItem(STORAGE_KEYS.CHANNELS);
+        localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+        window.location.reload();
+      }
+    };
+
     return (
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -1989,6 +2045,26 @@ function App() {
                     className="block w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                   />
                 </div>
+              </div>
+            </section>
+            
+            <section className="pt-6 border-t border-slate-100">
+              <h3 className="text-md font-semibold text-slate-800 mb-4 border-l-4 border-red-500 pl-3">
+                数据管理
+              </h3>
+              <div className="bg-red-50 border border-red-100 rounded-lg p-4 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-red-800">重置系统数据</h4>
+                  <p className="text-xs text-red-600 mt-1">
+                    清除本地缓存的所有数据（库存、媒体、渠道等），恢复到初始演示状态。
+                  </p>
+                </div>
+                <button 
+                  onClick={handleResetData}
+                  className="px-4 py-2 bg-white border border-red-200 text-red-600 text-sm font-medium rounded hover:bg-red-50 transition-colors shadow-sm"
+                >
+                  重置数据
+                </button>
               </div>
             </section>
 
