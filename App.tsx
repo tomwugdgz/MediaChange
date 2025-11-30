@@ -81,6 +81,32 @@ const INITIAL_MEDIA: MediaResource[] = [
     status: 'pending',
     valuation: 10000 
   },
+  { 
+    id: 'm5', 
+    name: '亲邻科技', 
+    type: '社区媒体', 
+    format: '社区广告门',
+    location: '全国主要城市社区', 
+    rate: '¥9,000/周',
+    discount: 0.85,
+    contractStart: '2023-01-01',
+    contractEnd: '2024-12-31',
+    status: 'active',
+    valuation: 12000 
+  },
+  { 
+    id: 'm6', 
+    name: '皓邻传媒', 
+    type: '社区媒体', 
+    format: '单元门智能框架',
+    location: '全国高端社区', 
+    rate: '¥1,180/周',
+    discount: 0.80,
+    contractStart: '2023-03-15',
+    contractEnd: '2025-03-14',
+    status: 'active',
+    valuation: 8000 
+  },
 ];
 
 const INITIAL_CHANNELS: SalesChannel[] = [
@@ -954,6 +980,7 @@ function App() {
                     <option>数字媒体</option>
                     <option>电视媒体</option>
                     <option>平面媒体</option>
+                    <option>社区媒体</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
                 </div>
