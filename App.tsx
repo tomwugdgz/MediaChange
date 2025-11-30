@@ -715,6 +715,20 @@ function App() {
       }
     };
     
+    // Dynamic Stats Calculation
+    const totalCount = inventory.length;
+    const totalInventoryValue = inventory.reduce((sum, item) => sum + (item.quantity * item.marketPrice), 0);
+    const lowStockCount = inventory.filter(item => item.status === InventoryStatus.LOW_STOCK).length;
+    const outStockCount = inventory.filter(item => 
+      item.status === InventoryStatus.OUT_OF_STOCK || item.status === InventoryStatus.DISCONTINUED
+    ).length;
+
+    const formatValue = (val: number) => {
+      if (val > 1000000) return `¥${(val / 1000000).toFixed(2)}M`;
+      if (val > 1000) return `¥${(val / 1000).toFixed(0)}k`;
+      return `¥${val}`;
+    };
+    
     const filteredList = getFilteredInventory();
 
     return (
@@ -741,40 +755,40 @@ function App() {
           </div>
         </div>
 
-        {/* Stats Cards Matching Screenshot */}
+        {/* Stats Cards - Dynamic Data */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard 
             title="总商品数" 
-            value="1,248" 
+            value={totalCount.toLocaleString()} 
             icon={Package} 
-            trend="5.2% 较上月" 
+            trend="Live Data" 
             trendUp={true} 
             iconBgClass="bg-blue-100" 
             iconColorClass="text-blue-600"
           />
           <StatCard 
             title="库存总值" 
-            value="¥8.45M" 
+            value={formatValue(totalInventoryValue)} 
             icon={DollarSign} 
-            trend="8.7% 较上月" 
+            trend="Live Data" 
             trendUp={true}
             iconBgClass="bg-green-100" 
             iconColorClass="text-green-600"
           />
           <StatCard 
-            title="待审核商品" 
-            value="24" 
+            title="库存预警 (Low Stock)" 
+            value={lowStockCount} 
             icon={Clock} 
-            trend="12.3% 较上月" 
+            trend="需要关注" 
             trendUp={false}
             iconBgClass="bg-amber-100" 
             iconColorClass="text-amber-600"
           />
           <StatCard 
-            title="即将过期" 
-            value="12" 
+            title="缺货/下架 (Out of Stock)" 
+            value={outStockCount} 
             icon={AlertTriangle} 
-            trend="3.5% 较上月" 
+            trend="补货建议" 
             trendUp={false}
             iconBgClass="bg-red-100" 
             iconColorClass="text-red-600"
@@ -939,15 +953,16 @@ function App() {
                         <div className="flex items-center justify-end space-x-3">
                           <button 
                             onClick={() => openEditInventoryModal(item)}
-                            className="text-indigo-600 hover:text-indigo-800"
+                            className="flex items-center text-indigo-600 hover:text-indigo-800 transition-colors"
                           >
-                            <Edit2 className="h-4 w-4" />
+                            <Edit2 className="h-4 w-4 mr-1" /> 编辑
                           </button>
                           <button 
                             onClick={() => handleDeleteInventory(item.id, item.name)}
-                            className="text-slate-400 hover:text-red-600"
+                            className="flex items-center text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                            title="删除商品"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 mr-1" /> 删除
                           </button>
                         </div>
                       </td>
@@ -1168,15 +1183,16 @@ function App() {
                       <div className="flex items-center justify-center space-x-3">
                          <button 
                           onClick={() => openEditMediaModal(item)}
-                          className="text-indigo-600 hover:text-indigo-800"
+                          className="flex items-center text-indigo-600 hover:text-indigo-800 transition-colors"
                          >
-                           <Edit2 className="h-4 w-4" />
+                           <Edit2 className="h-4 w-4 mr-1" /> 编辑
                          </button>
                          <button 
                           onClick={() => handleDeleteMedia(item.id, item.name)}
-                          className="text-red-500 hover:text-red-700"
+                          className="flex items-center text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                          title="删除媒体"
                          >
-                           <Trash2 className="h-4 w-4" />
+                           <Trash2 className="h-4 w-4 mr-1" /> 删除
                          </button>
                       </div>
                     </td>
@@ -1383,10 +1399,11 @@ function App() {
                       <div className="flex items-center justify-center space-x-3">
                          <button 
                           onClick={() => openEditChannelModal(item)}
-                          className="text-blue-500 hover:text-blue-700"
+                          className="flex items-center text-blue-500 hover:text-blue-700 transition-colors"
                          >
-                           <Edit2 className="h-4 w-4" />
+                           <Edit2 className="h-4 w-4 mr-1" /> 编辑
                          </button>
+                         {/* Link button removed for now to focus on Edit/Delete per request, or keep it icon only? I'll keep icon only for Link as it's secondary */}
                          <button 
                            className="text-green-500 hover:text-green-700"
                            title="Link/Connect"
@@ -1395,9 +1412,10 @@ function App() {
                          </button>
                          <button 
                           onClick={() => handleDeleteChannel(item.id, item.name)}
-                          className="text-slate-400 hover:text-red-500"
+                          className="flex items-center text-red-500 hover:text-red-700 transition-colors cursor-pointer"
+                          title="删除渠道"
                          >
-                           <Trash2 className="h-4 w-4" />
+                           <Trash2 className="h-4 w-4 mr-1" /> 删除
                          </button>
                       </div>
                     </td>
