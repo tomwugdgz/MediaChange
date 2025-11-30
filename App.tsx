@@ -11,10 +11,11 @@ import {
   Calculator, AlertTriangle, Tv, ShoppingCart, Settings, Save, MinusCircle, X,
   Monitor, Clock, Download, ChevronDown, MoreHorizontal, Globe, Store, Star, Link2,
   Smartphone, Home, BriefcaseMedical, Droplets, ExternalLink, TrendingDown,
-  ArrowRight, Equal, Percent, Activity
+  ArrowRight, Equal, Percent, Activity, Calendar
 } from 'lucide-react';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend,
+  LineChart, Line, AreaChart, Area
 } from 'recharts';
 import { InventoryItem, InventoryStatus, AIAnalysisResult, MediaResource, SalesChannel, AppSettings, Notification } from './types';
 import { analyzePricing, assessRisk } from './services/geminiService';
@@ -158,6 +159,34 @@ const INITIAL_CHANNELS: SalesChannel[] = [
     commissionRate: 0.12, 
     contactPerson: 'David Li' 
   },
+];
+
+const REPORT_DATA = [
+  { month: '1月', revenue: 98.5, cost: 78.2, profit: 20.3, roi: 25.9, count: 92, growth: 15.2 },
+  { month: '2月', revenue: 87.6, cost: 70.5, profit: 17.1, roi: 24.3, count: 85, growth: 12.8 },
+  { month: '3月', revenue: 105.2, cost: 84.6, profit: 20.6, roi: 24.3, count: 102, growth: 18.5 },
+  { month: '4月', revenue: 96.8, cost: 78.2, profit: 18.6, roi: 23.8, count: 95, growth: 10.2 },
+  { month: '5月', revenue: 112.5, cost: 90.8, profit: 21.7, roi: 23.9, count: 108, growth: 16.7 },
+  { month: '6月', revenue: 108.3, cost: 87.5, profit: 20.8, roi: 23.8, count: 105, growth: 14.3 },
+  { month: '7月', revenue: 115.7, cost: 93.2, profit: 22.5, roi: 24.1, count: 112, growth: 17.8 },
+  { month: '8月', revenue: 118.4, cost: 95.5, profit: 22.9, roi: 24.0, count: 115, growth: 18.2 },
+  { month: '9月', revenue: 122.8, cost: 99.2, profit: 23.6, roi: 23.8, count: 118, growth: 19.5 },
+  { month: '10月', revenue: 128.5, cost: 103.6, profit: 24.9, roi: 24.0, count: 122, growth: 20.8 },
+  { month: '11月', revenue: 135.2, cost: 108.8, profit: 26.4, roi: 24.3, count: 128, growth: 22.3 },
+  { month: '12月', revenue: 141.9, cost: 114.2, profit: 27.7, roi: 24.3, count: 134, growth: 23.5 },
+];
+
+const CATEGORY_DIST_DATA = [
+  { name: '电子产品', value: 450, color: '#4f46e5' },
+  { name: '家用电器', value: 320, color: '#06b6d4' },
+  { name: '食品饮料', value: 210, color: '#f59e0b' },
+  { name: '保健品', value: 150, color: '#ec4899' },
+  { name: '其他', value: 118, color: '#64748b' },
+];
+
+const CHANNEL_DIST_DATA = [
+  { name: '线上渠道', value: 850, color: '#10b981' },
+  { name: '线下渠道', value: 398, color: '#3b82f6' },
 ];
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -1656,6 +1685,259 @@ function App() {
     );
   };
 
+  const ReportsPage = () => {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-slate-900">数据报表</h2>
+          <div className="flex space-x-3">
+            <button className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
+              <Calendar className="h-4 w-4 mr-2" /> 近一年
+            </button>
+            <button className="flex items-center px-4 py-2 bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 transition-colors shadow-sm">
+              <Download className="h-4 w-4 mr-2" /> 导出报表
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard 
+            title="年度总收益" 
+            value="¥12.85M" 
+            icon={DollarSign} 
+            trend="15.2% 较去年"
+            trendUp={true} 
+            iconBgClass="bg-blue-100" 
+            iconColorClass="text-blue-600"
+          />
+          <StatCard 
+            title="年度净利润" 
+            value="¥2.75M" 
+            icon={TrendingUp} 
+            trend="18.7% 较去年" 
+            trendUp={true} 
+            iconBgClass="bg-green-100" 
+            iconColorClass="text-green-600"
+          />
+          <StatCard 
+            title="年度ROI" 
+            value="21.4%" 
+            icon={Percent} 
+            trend="2.8% 较去年" 
+            trendUp={true}
+            iconBgClass="bg-amber-100" 
+            iconColorClass="text-amber-600"
+          />
+          <StatCard 
+            title="交易总数" 
+            value="1,248" 
+            icon={Package} 
+            trend="12.3% 较去年" 
+            trendUp={true}
+            iconBgClass="bg-purple-100" 
+            iconColorClass="text-purple-600"
+          />
+        </div>
+
+        {/* Annual Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+           {/* Annual Profit Curve */}
+           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-slate-800">年度盈利曲线</h3>
+                <div className="flex space-x-2 text-xs">
+                  <span className="px-2 py-1 bg-slate-100 rounded text-slate-500 cursor-pointer hover:bg-slate-200">月度</span>
+                  <span className="px-2 py-1 bg-white border border-slate-200 rounded text-slate-500 cursor-pointer hover:bg-slate-50">季度</span>
+                  <span className="px-2 py-1 bg-white border border-slate-200 rounded text-slate-500 cursor-pointer hover:bg-slate-50">年度</span>
+                </div>
+             </div>
+             <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                   <LineChart data={REPORT_DATA}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        formatter={(val: number) => `¥${val}k`}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="revenue" name="总收益" stroke="#4f46e5" strokeWidth={2} dot={{r: 3}} activeDot={{r: 6}} />
+                      <Line type="monotone" dataKey="cost" name="总成本" stroke="#ef4444" strokeWidth={2} dot={{r: 3}} />
+                      <Line type="monotone" dataKey="profit" name="净利润" stroke="#10b981" strokeWidth={2} dot={{r: 3}} />
+                   </LineChart>
+                </ResponsiveContainer>
+             </div>
+           </div>
+
+           {/* Annual ROI Trend */}
+           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-slate-800">年度ROI趋势</h3>
+                <div className="flex space-x-2 text-xs">
+                  <span className="px-2 py-1 bg-slate-100 rounded text-slate-500 cursor-pointer hover:bg-slate-200">月度</span>
+                  <span className="px-2 py-1 bg-white border border-slate-200 rounded text-slate-500 cursor-pointer hover:bg-slate-50">季度</span>
+                  <span className="px-2 py-1 bg-white border border-slate-200 rounded text-slate-500 cursor-pointer hover:bg-slate-50">年度</span>
+                </div>
+             </div>
+             <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                   <AreaChart data={REPORT_DATA}>
+                      <defs>
+                        <linearGradient id="colorRoi" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis fontSize={12} tickLine={false} axisLine={false} unit="%" />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        formatter={(val: number) => `${val}%`}
+                      />
+                      <Area type="monotone" dataKey="roi" name="ROI" stroke="#f59e0b" fillOpacity={1} fill="url(#colorRoi)" />
+                   </AreaChart>
+                </ResponsiveContainer>
+             </div>
+           </div>
+        </div>
+
+        {/* Distributions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h3 className="text-lg font-bold text-slate-800 mb-4">商品分类销售占比</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                   <PieChart>
+                      <Pie
+                        data={CATEGORY_DIST_DATA}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {CATEGORY_DIST_DATA.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                   </PieChart>
+                </ResponsiveContainer>
+              </div>
+           </div>
+           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+              <h3 className="text-lg font-bold text-slate-800 mb-4">渠道销售占比</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                   <PieChart>
+                      <Pie
+                        data={CHANNEL_DIST_DATA}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {CHANNEL_DIST_DATA.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                   </PieChart>
+                </ResponsiveContainer>
+              </div>
+           </div>
+        </div>
+
+        {/* Detailed Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+             <h3 className="text-base font-semibold text-slate-800">月度详细数据报表</h3>
+             <div className="flex space-x-2">
+                <button className="flex items-center px-3 py-1.5 bg-white border border-slate-300 text-slate-600 text-sm rounded hover:bg-slate-50">
+                  <Filter className="h-3 w-3 mr-1" /> 筛选
+                </button>
+                <button className="flex items-center px-3 py-1.5 bg-white border border-slate-300 text-slate-600 text-sm rounded hover:bg-slate-50">
+                  <Download className="h-3 w-3 mr-1" /> 导出CSV
+                </button>
+             </div>
+          </div>
+          <div className="overflow-x-auto">
+             <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 font-medium">
+                  <tr>
+                    <th className="px-6 py-3">月份</th>
+                    <th className="px-6 py-3 text-right">总收益(万元)</th>
+                    <th className="px-6 py-3 text-right">总成本(万元)</th>
+                    <th className="px-6 py-3 text-right">净利润(万元)</th>
+                    <th className="px-6 py-3 text-center">ROI</th>
+                    <th className="px-6 py-3 text-center">交易数</th>
+                    <th className="px-6 py-3 text-center">同比增长</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {REPORT_DATA.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 font-medium text-slate-900">{row.month}</td>
+                      <td className="px-6 py-4 text-right">{row.revenue}</td>
+                      <td className="px-6 py-4 text-right text-slate-500">{row.cost}</td>
+                      <td className="px-6 py-4 text-right font-medium text-green-600">{row.profit}</td>
+                      <td className="px-6 py-4 text-center">{row.roi}%</td>
+                      <td className="px-6 py-4 text-center">{row.count}</td>
+                      <td className="px-6 py-4 text-center text-green-600">+{row.growth}%</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-slate-50 font-bold">
+                    <td className="px-6 py-4 text-slate-900">年度总计</td>
+                    <td className="px-6 py-4 text-right">1,285.0</td>
+                    <td className="px-6 py-4 text-right text-slate-500">1,010.0</td>
+                    <td className="px-6 py-4 text-right text-green-600">275.0</td>
+                    <td className="px-6 py-4 text-center">27.2%</td>
+                    <td className="px-6 py-4 text-center">1,248</td>
+                    <td className="px-6 py-4 text-center text-green-600">+18.7%</td>
+                  </tr>
+                </tbody>
+             </table>
+          </div>
+        </div>
+
+        {/* Trend Analysis */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <div className="bg-indigo-50 p-6 rounded-xl border border-indigo-100">
+              <h3 className="font-bold text-indigo-900 mb-3 flex items-center">
+                 <TrendingUp className="h-5 w-5 mr-2" /> 销售趋势分析
+              </h3>
+              <ul className="space-y-2 text-sm text-indigo-800">
+                 <li className="flex items-start"><span className="mr-2">•</span> 年度销售额整体呈上升趋势，环比增长稳定</li>
+                 <li className="flex items-start"><span className="mr-2">•</span> 第二季度销售额增长放缓，可能受季节性因素影响</li>
+                 <li className="flex items-start"><span className="mr-2">•</span> 第四季度销售额增长最快，同比增长超过20%</li>
+                 <li className="flex items-start"><span className="mr-2">•</span> 电子产品和家居用品是增长最快的品类</li>
+              </ul>
+           </div>
+           <div className="bg-amber-50 p-6 rounded-xl border border-amber-100">
+              <h3 className="font-bold text-amber-900 mb-3 flex items-center">
+                 <Activity className="h-5 w-5 mr-2" /> ROI趋势分析
+              </h3>
+              <ul className="space-y-2 text-sm text-amber-800">
+                 <li className="flex items-start"><span className="mr-2">•</span> 年度ROI整体保持在24%左右，波动较小</li>
+                 <li className="flex items-start"><span className="mr-2">•</span> 第一季度ROI最高，达到25.9%</li>
+                 <li className="flex items-start"><span className="mr-2">•</span> 第三季度ROI略有下降，主要受媒体成本上涨影响</li>
+                 <li className="flex items-start"><span className="mr-2">•</span> 线上渠道ROI高于线下渠道，尤其是直播电商渠道</li>
+              </ul>
+           </div>
+        </div>
+      </div>
+    );
+  };
+
   const SettingsPage = () => {
     const [localSettings, setLocalSettings] = useState<AppSettings>(settings);
     const [isSaved, setIsSaved] = useState(false);
@@ -1967,7 +2249,7 @@ function App() {
       {activeTab === 'risk' && <RiskPage />}
       {activeTab === 'settings' && <SettingsPage />}
       {activeTab === 'finance' && <FinancePage />}
-      {activeTab === 'reports' && <PlaceholderPage title="数据报表导出" icon={FileText} />}
+      {activeTab === 'reports' && <ReportsPage />}
     </Layout>
   );
 }
