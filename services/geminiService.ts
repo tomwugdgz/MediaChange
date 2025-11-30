@@ -1,7 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { InventoryItem, AIAnalysisResult } from "../types";
 
-const apiKey = process.env.API_KEY || '';
+// Safely access process.env to prevent crashes in browser environments where process is undefined
+const apiKey = (typeof process !== 'undefined' && process.env && process.env.API_KEY) || '';
 
 // Initialize specific model instances based on task
 const getAIClient = () => {
