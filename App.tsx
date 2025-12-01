@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from './components/Layout';
 import StatCard from './components/StatCard';
 import MediaModal from './components/MediaModal';
@@ -11,7 +11,7 @@ import {
   Calculator, AlertTriangle, Tv, ShoppingCart, Settings, Save, MinusCircle, X,
   Monitor, Clock, Download, ChevronDown, MoreHorizontal, Globe, Store, Star, Link2,
   Smartphone, Home, BriefcaseMedical, Droplets, ExternalLink, TrendingDown,
-  ArrowRight, Equal, Percent, Activity, Calendar, Database
+  ArrowRight, Equal, Percent, Activity, Calendar, Database, Upload
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend,
@@ -241,6 +241,40 @@ const ToastContainer = ({ notifications, removeToast }: { notifications: Notific
   );
 };
 
+// --- HELPER FOR CSV IMPORT ---
+// Simple CSV parser that handles basic comma separation and quotes.
+// Note: This is a client-side lightweight parser. For complex CSVs with newlines inside fields, a library is better.
+const parseCSV = (text: string): Record<string, string>[] => {
+  const lines = text.split('\n').filter(line => line.trim() !== '');
+  if (lines.length < 2) return [];
+
+  // Extract headers
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  
+  const result = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const currentLine = lines[i];
+    // Regex to split by comma but ignore commas inside quotes
+    const values = currentLine.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+    
+    // Fallback if regex fails or simple split is needed (simplified)
+    const simpleValues = currentLine.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    
+    const rowValues = values.length >= headers.length ? values.map(v => v.trim().replace(/^"|"$/g, '')) : simpleValues;
+
+    if (rowValues.length > 0) {
+      const obj: Record<string, string> = {};
+      headers.forEach((header, index) => {
+        obj[header] = rowValues[index] || '';
+      });
+      result.push(obj);
+    }
+  }
+  return result;
+};
+
+
 // --- APP COMPONENT ---
 
 function App() {
@@ -262,6 +296,9 @@ function App() {
   
   // New States for Notifications (No need to persist typically)
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  
+  // Selection State
+  const [selectedInventoryIds, setSelectedInventoryIds] = useState<string[]>([]);
 
   // State for Modals
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
@@ -492,6 +529,8 @@ function App() {
   const handleDeleteInventory = (id: string, name: string) => {
     if (window.confirm(`确定要删除商品 "${name}" 吗？此操作无法撤销。`)) {
       setInventory(prev => prev.filter(item => item.id !== id));
+      // Also remove from selection if present
+      setSelectedInventoryIds(prev => prev.filter(i => i !== id));
       addNotification("商品删除", `商品 "${name}" 已被删除。`, "info");
     }
   };
@@ -704,6 +743,8 @@ function App() {
   };
 
   const InventoryPage = () => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     // Helper to get category icon
     const getIcon = (category: string) => {
       switch(category) {
@@ -731,12 +772,91 @@ function App() {
     
     const filteredList = getFilteredInventory();
 
+    // Selection Handlers
+    const toggleInventorySelection = (id: string) => {
+      setSelectedInventoryIds(prev => 
+        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      );
+    };
+
+    const toggleSelectAllInventory = () => {
+      if (selectedInventoryIds.length === filteredList.length && filteredList.length > 0) {
+        setSelectedInventoryIds([]);
+      } else {
+        setSelectedInventoryIds(filteredList.map(i => i.id));
+      }
+    };
+
+    const handleBatchDeleteInventory = () => {
+       if (selectedInventoryIds.length === 0) return;
+       if (window.confirm(`确定要删除选中的 ${selectedInventoryIds.length} 个商品吗？此操作无法撤销。`)) {
+          setInventory(prev => prev.filter(item => !selectedInventoryIds.includes(item.id)));
+          setSelectedInventoryIds([]); // Clear selection
+          addNotification("批量删除", `已成功删除 ${selectedInventoryIds.length} 个商品。`, "success");
+       }
+    };
+
+    const handleImportInventory = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        try {
+          const rows = parseCSV(text);
+          if (rows.length === 0) throw new Error("File is empty or invalid format");
+
+          const newItems: InventoryItem[] = rows.map((row, index) => ({
+             id: row['商品ID'] || `import-${Date.now()}-${index}`,
+             name: row['商品名称'] || '未命名商品',
+             brand: row['品牌'] || 'Unknown',
+             category: row['分类'] || '其他',
+             quantity: parseInt(row['库存数量']) || 0,
+             marketPrice: parseFloat(row['市场单价']) || 0,
+             lowestPrice: parseFloat(row['最低价']) || 0,
+             costPrice: parseFloat(row['成本价']) || 0,
+             productUrl: row['产品链接'] || '',
+             status: (row['状态'] as InventoryStatus) || InventoryStatus.IN_STOCK,
+             lastUpdated: row['最后更新'] || new Date().toISOString().split('T')[0],
+             description: ''
+          }));
+
+          // Merge Logic: Update existing by ID, add new
+          const merged = [...inventory];
+          newItems.forEach(newItem => {
+             const idx = merged.findIndex(i => i.id === newItem.id);
+             if (idx >= 0) merged[idx] = newItem;
+             else merged.unshift(newItem); // Add new to top
+          });
+
+          setInventory(merged);
+          addNotification("导入成功", `成功导入/更新了 ${newItems.length} 条商品数据`, "success");
+        } catch (error) {
+           console.error(error);
+           addNotification("导入失败", "文件解析错误，请确保使用正确的CSV格式", "error");
+        }
+      };
+      reader.readAsText(file);
+      // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     return (
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-slate-900">库存管理</h2>
           <div className="flex space-x-3">
+             {selectedInventoryIds.length > 0 && (
+                <button 
+                  onClick={handleBatchDeleteInventory}
+                  className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm animate-fade-in"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> 批量删除 ({selectedInventoryIds.length})
+                </button>
+             )}
+
             <button 
               onClick={openAddInventoryModal}
               className="flex items-center px-4 py-2 bg-indigo-700 text-white rounded-lg hover:bg-indigo-800 transition-colors shadow-sm"
@@ -746,6 +866,21 @@ function App() {
             <button className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <Filter className="h-4 w-4 mr-2" /> 筛选
             </button>
+            
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              style={{display: 'none'}} 
+              accept=".csv" 
+              onChange={handleImportInventory} 
+            />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <Upload className="h-4 w-4 mr-2" /> 导入
+            </button>
+
             <button 
               onClick={handleExportInventory}
               className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
@@ -878,7 +1013,14 @@ function App() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 font-medium w-12"><input type="checkbox" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" /></th>
+                  <th className="px-6 py-4 font-medium w-12">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer" 
+                      checked={filteredList.length > 0 && selectedInventoryIds.length === filteredList.length}
+                      onChange={toggleSelectAllInventory}
+                    />
+                  </th>
                   <th className="px-6 py-4 font-medium">商品图片</th>
                   <th className="px-6 py-4 font-medium">商品名称</th>
                   <th className="px-6 py-4 font-medium">分类</th>
@@ -911,9 +1053,14 @@ function App() {
                     'bg-red-100 text-red-800';
                   
                   return (
-                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={item.id} className={`hover:bg-slate-50 transition-colors ${selectedInventoryIds.includes(item.id) ? 'bg-indigo-50/50' : ''}`}>
                       <td className="px-6 py-4">
-                        <input type="checkbox" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer" 
+                          checked={selectedInventoryIds.includes(item.id)}
+                          onChange={() => toggleInventorySelection(item.id)}
+                        />
                       </td>
                       <td className="px-6 py-4">
                         <div className="h-10 w-10 bg-slate-100 rounded-md flex items-center justify-center text-slate-500">
@@ -978,7 +1125,52 @@ function App() {
   };
 
   const MediaPage = () => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const filteredList = getFilteredMedia();
+
+    const handleImportMedia = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        try {
+          const rows = parseCSV(text);
+          if (rows.length === 0) throw new Error("File is empty");
+
+          const newMedia: MediaResource[] = rows.map((row, index) => ({
+             id: row['媒体ID'] || `import-m-${Date.now()}-${index}`,
+             name: row['媒体名称'] || '未命名媒体',
+             type: row['类型'] || '户外媒体',
+             format: row['广告形式'] || '',
+             location: row['覆盖范围'] || '',
+             rate: row['刊例价格'] || '',
+             discount: parseFloat(row['折扣']) || 0.8,
+             contractStart: row['合同开始'] || new Date().toISOString().split('T')[0],
+             contractEnd: row['合同结束'] || '',
+             status: (row['状态'] as any) || 'active',
+             valuation: 0
+          }));
+
+           // Merge
+           const merged = [...media];
+           newMedia.forEach(newItem => {
+              const idx = merged.findIndex(i => i.id === newItem.id);
+              if (idx >= 0) merged[idx] = newItem;
+              else merged.unshift(newItem);
+           });
+ 
+           setMedia(merged);
+           addNotification("导入成功", `成功导入/更新了 ${newMedia.length} 条媒体数据`, "success");
+
+        } catch (e) {
+           addNotification("导入失败", "CSV格式错误", "error");
+        }
+      }
+      reader.readAsText(file);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
 
     return (
       <div className="space-y-6">
@@ -995,6 +1187,21 @@ function App() {
             <button className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <Filter className="h-4 w-4 mr-2" /> 筛选
             </button>
+
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              style={{display: 'none'}} 
+              accept=".csv" 
+              onChange={handleImportMedia} 
+            />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <Upload className="h-4 w-4 mr-2" /> 导入
+            </button>
+
             <button 
               onClick={handleExportMedia}
               className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
@@ -1215,7 +1422,51 @@ function App() {
   };
 
   const ChannelsPage = () => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const filteredList = getFilteredChannels();
+
+    const handleImportChannels = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        try {
+          const rows = parseCSV(text);
+          if (rows.length === 0) throw new Error("File is empty");
+
+          const newChannels: SalesChannel[] = rows.map((row, index) => ({
+             id: row['渠道ID'] || `import-c-${Date.now()}-${index}`,
+             name: row['渠道名称'] || '未命名渠道',
+             type: (row['类型'] as any) || 'Online',
+             subType: row['子类型'] || '',
+             applicableCategories: row['适用品类'] || '',
+             features: row['特点'] || '',
+             pros: row['优势'] || '',
+             commissionRate: parseFloat(row['佣金比例']) || 0.1,
+             contactPerson: row['联系人'] || '',
+             status: (row['状态'] as any) || 'active'
+          }));
+
+           // Merge
+           const merged = [...channels];
+           newChannels.forEach(newItem => {
+              const idx = merged.findIndex(i => i.id === newItem.id);
+              if (idx >= 0) merged[idx] = newItem;
+              else merged.unshift(newItem);
+           });
+ 
+           setChannels(merged);
+           addNotification("导入成功", `成功导入/更新了 ${newChannels.length} 条渠道数据`, "success");
+
+        } catch (e) {
+           addNotification("导入失败", "CSV格式错误", "error");
+        }
+      }
+      reader.readAsText(file);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
 
     return (
       <div className="space-y-6">
@@ -1232,6 +1483,21 @@ function App() {
             <button className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors">
               <Filter className="h-4 w-4 mr-2" /> 筛选
             </button>
+            
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              style={{display: 'none'}} 
+              accept=".csv" 
+              onChange={handleImportChannels} 
+            />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              <Upload className="h-4 w-4 mr-2" /> 导入
+            </button>
+
             <button 
               onClick={handleExportChannels}
               className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
@@ -1448,7 +1714,13 @@ function App() {
     // Default effects when selection changes
     useEffect(() => {
         if(selectedItem) {
-            setSellPrice(selectedItem.marketPrice);
+            // Updated Logic: Use lowest price if available, otherwise market price. 
+            // Apply 0.6 factor (60% of lowest/market price) as default sell price for clearance/barter.
+            const basePrice = selectedItem.lowestPrice && selectedItem.lowestPrice > 0 
+                ? selectedItem.lowestPrice 
+                : selectedItem.marketPrice;
+                
+            setSellPrice(Math.floor(basePrice * 0.6));
             setSellQuantity(selectedItem.quantity); // Default to full stock
         }
     }, [selectedItemId]);
@@ -1597,8 +1869,12 @@ function App() {
                              <div>
                                 <label className="flex justify-between text-sm font-medium text-slate-700 mb-1">
                                     <span>销售单价 (Sell Price)</span>
-                                    <span className="text-slate-400">Ref: ¥{selectedItem?.marketPrice || 0}</span>
+                                    <span className="text-slate-400">Ref: ¥{(selectedItem?.lowestPrice || selectedItem?.marketPrice || 0) * 0.6}</span>
                                 </label>
+                                <div className="text-xs text-slate-500 mb-1.5 flex items-center">
+                                    <span className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded mr-1">Auto</span>
+                                    基于全网最低价 x 60%
+                                </div>
                                 <div className="relative rounded-md shadow-sm">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <span className="text-gray-500 sm:text-sm">¥</span>
