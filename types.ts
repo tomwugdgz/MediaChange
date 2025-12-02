@@ -72,3 +72,19 @@ export interface Notification {
   timestamp: Date;
   read: boolean;
 }
+
+export interface PricingPlan {
+  id: string;
+  inventoryId: string;
+  inventoryName: string;
+  inventoryCost: number;
+  mediaId: string;
+  mediaName: string;
+  mediaCostStr: string;
+  channelId: string;
+  channelName: string;
+  channelBid: number; // Suggested selling price
+  roi: number;
+  status: 'executed' | 'pending' | 'draft';
+  lastUpdated: string;
+}
